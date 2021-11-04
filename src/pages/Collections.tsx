@@ -1,39 +1,27 @@
 import {
-  Button,
   Group,
-  Placeholder,
-  Separator,
-  Div,
-  Header,
   SimpleCell,
   IconButton,
   PanelHeader,
   PullToRefresh,
-  DatePicker,
-  FormItem,
-  Input,
-  CardScroll,
-  Card,
   Tabs,
   TabsItem,
 } from '@vkontakte/vkui'
-import { Icon16Delete, Icon24Qr, Icon28QrCodeOutline } from '@vkontakte/icons'
 import { GoInterface } from '../utils/interfaceInjections/go.interface'
-import bridge from '@vkontakte/vk-bridge'
-import { Component, ReactNode, useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import {
-  ArchiveIcon,
   BeakerIcon,
   CalculatorIcon,
   LinkIcon,
   QrcodeIcon,
+  ShareIcon,
   TrashIcon,
 } from '@heroicons/react/outline'
 import useCached from '../utils/useCached'
 import { QR } from '../utils/models/General.model'
-import { nanoid } from 'nanoid'
 import { DateTime } from 'luxon'
 import { ReNumber, ReURL } from '../utils/regexps'
+import { shareStory } from '../utils/shareStory'
 
 export interface CollectionsProps extends GoInterface {
   fetchItems: CallableFunction
@@ -83,12 +71,20 @@ export const Collections = (props: CollectionsProps) => {
               return (
                 <SimpleCell
                   after={
-                    <IconButton
-                      aria-label='Удалить'
-                      onClick={() => deleteQr(v.hash)}
-                    >
-                      <TrashIcon className='w-6 h-6 mx-3' />
-                    </IconButton>
+                    <>
+                      <IconButton
+                        aria-label='Поделиться'
+                        onClick={() => shareStory(v)}
+                      >
+                        <ShareIcon className='w-6 h-6 mx-3' />
+                      </IconButton>
+                      <IconButton
+                        aria-label='Удалить'
+                        onClick={() => deleteQr(v.hash)}
+                      >
+                        <TrashIcon className='w-6 h-6 mx-3' />
+                      </IconButton>
+                    </>
                   }
                   description={v.data}
                 >

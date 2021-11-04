@@ -1,16 +1,11 @@
 import {
   useAdaptivity,
-  AppRoot,
   SplitLayout,
   SplitCol,
   ViewWidth,
   View,
   Panel,
   PanelHeader,
-  Header,
-  Group,
-  SimpleCell,
-  PanelHeaderBack,
   ScreenSpinner,
 } from '@vkontakte/vkui'
 import useCached from './utils/useCached'
@@ -44,12 +39,11 @@ const App = () => {
     const qrs = JSON.parse((qrsRaw && qrsRaw.value) || '[]')
     setQrList(qrs)
     setPopout(false)
-    console.log('storage history', qrs)
   }, [])
 
   useEffect(() => {
     bridge.subscribe(({ detail: { type, data } }) => {
-      console.log(type, data)
+      //console.log(type, data)
     })
     async function fetchData() {
       const user = await bridge.send('VKWebAppGetUserInfo')
@@ -62,13 +56,10 @@ const App = () => {
 
   useEffect(() => {
     if (qrList && qrList.length) {
-      console.log('saving...')
-      console.log(
-        bridge.send('VKWebAppStorageSet', {
-          key: 'history',
-          value: JSON.stringify(qrList),
-        })
-      )
+      bridge.send('VKWebAppStorageSet', {
+        key: 'history',
+        value: JSON.stringify(qrList),
+      })
     }
   }, [qrList])
 

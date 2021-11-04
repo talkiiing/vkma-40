@@ -18,7 +18,6 @@ export const CreateFirst = (props: CreateFirstProps) => {
 
   const handleScan = useCallback(async () => {
     const result = await bridge.send('VKWebAppOpenCodeReader')
-    console.log(result.code_data)
     setQrList([
       ...qrList,
       {

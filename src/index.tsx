@@ -8,6 +8,8 @@ import store from './store/store'
 import { AdaptivityProvider, AppRoot, ConfigProvider } from '@vkontakte/vkui'
 import bridge from '@vkontakte/vk-bridge'
 
+bridge.subscribe((e) => console.log(e))
+
 // Отправляет событие нативному клиенту на инициализацию приложения
 bridge.send('VKWebAppInit', {})
 
@@ -26,4 +28,4 @@ ReactDOM.render(
   document.getElementById('root')
 )
 
-// import('./eruda').then(({ default: eruda }) => {}) //runtime download
+import('./eruda').then(({ default: eruda }) => {}) //runtime download

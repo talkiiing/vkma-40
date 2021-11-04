@@ -13,11 +13,12 @@ import { Icon16Delete, Icon24Qr, Icon28QrCodeOutline } from '@vkontakte/icons'
 import { GoInterface } from '../utils/interfaceInjections/go.interface'
 import bridge from '@vkontakte/vk-bridge'
 import { useCallback, useMemo } from 'react'
-import { QrcodeIcon, TrashIcon } from '@heroicons/react/outline'
+import { QrcodeIcon, ShareIcon, TrashIcon } from '@heroicons/react/outline'
 import useCached from '../utils/useCached'
 import { QR } from '../utils/models/General.model'
 import { nanoid } from 'nanoid'
 import { DateTime } from 'luxon'
+import { shareStory } from '../utils/shareStory'
 
 export interface HistoryProps extends GoInterface {
   fetchItems: CallableFunction
@@ -28,7 +29,6 @@ export const HistoryList = (props: HistoryProps) => {
 
   const handleScan = useCallback(async () => {
     const result = await bridge.send('VKWebAppOpenCodeReader')
-    console.log(result.code_data)
     setQrList([
       ...qrList,
       {
@@ -70,12 +70,20 @@ export const HistoryList = (props: HistoryProps) => {
             return (
               <SimpleCell
                 after={
-                  <IconButton
-                    aria-label='Удалить'
-                    onClick={() => deleteQr(v.hash)}
-                  >
-                    <TrashIcon className='w-6 h-6 mx-3' />
-                  </IconButton>
+                  <>
+                    <IconButton
+                      aria-label='Поделиться'
+                      onClick={() => shareStory(v)}
+                    >
+                      <ShareIcon className='w-6 h-6 mx-3' />
+                    </IconButton>
+                    <IconButton
+                      aria-label='Удалить'
+                      onClick={() => deleteQr(v.hash)}
+                    >
+                      <TrashIcon className='w-6 h-6 mx-3' />
+                    </IconButton>
+                  </>
                 }
                 description={v.data}
               >

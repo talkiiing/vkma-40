@@ -1,24 +1,9 @@
-import {
-  Button,
-  Group,
-  Header,
-  IconButton,
-  PanelHeader,
-  PanelHeaderBack,
-  PanelHeaderButton,
-  Placeholder,
-  PullToRefresh,
-  Separator,
-  SimpleCell,
-} from '@vkontakte/vkui'
-import { GoFn, QR } from '../utils/models/General.model'
-import { Icon28QrCodeOutline, Icon56MentionOutline } from '@vkontakte/icons'
+import { IconButton, PanelHeader, PullToRefresh } from '@vkontakte/vkui'
 import { ArchiveIcon, TrashIcon } from '@heroicons/react/outline'
 import { GoInterface } from '../utils/interfaceInjections/go.interface'
 import useCached from '../utils/useCached'
 import { CreateFirst } from './CreateFirst'
 import { HistoryList } from './HistoryList'
-import { useEffect, useMemo } from 'react'
 
 export interface MainProps extends GoInterface {
   setLoading: (state: boolean) => void
@@ -27,10 +12,6 @@ export interface MainProps extends GoInterface {
 
 export const Main = (props: MainProps) => {
   const { data: qrList } = useCached('qr_history', async () => [])
-
-  useEffect(() => {
-    console.log('list changed', qrList)
-  }, [qrList])
 
   return (
     <>
