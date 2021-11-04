@@ -1,0 +1,37 @@
+.hand-left {
+    animation: clapleft 1s infinite ease-in-out;
+}
+.hand-right {
+    transform: scaleX(-1);
+    animation: clapright 1s infinite ease-in-out;
+}
+
+@keyframes clapleft {
+    0% {
+        transform: rotate3d(0);
+    }
+    30% {
+        transform: translateX(1rem);
+    }
+    60% {
+        transform: translateX(2rem) rotate3d(0, 1, 0.6, 75deg);
+    }
+    100% {
+        transform: translateX(0rem);
+    }
+}
+
+@keyframes clapright {
+    0% {
+        transform: scaleX(-1) rotate3d(0);
+    }
+    30% {
+        transform: scaleX(-1) translateX(1rem);
+    }
+    60% {
+        transform: scaleX(-1) translateX(2rem) rotate3d(0, 1, 0.6, -75deg);
+    }
+    100% {
+        transform: scaleX(-1) translateX(0rem);
+    }
+}

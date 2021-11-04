@@ -12,7 +12,6 @@ import useCached from './utils/useCached'
 import bridge, { UserInfo } from '@vkontakte/vk-bridge'
 import { useCallback, useEffect, useState } from 'react'
 import { Main } from './pages/Main'
-import { Collections } from './pages/Collections'
 
 const App = () => {
   const { viewWidth, viewHeight } = useAdaptivity()
@@ -21,25 +20,8 @@ const App = () => {
     async () => 'main'
   )
 
-  const { data: qrList, setData: setQrList } = useCached(
-    'qr_history',
-    async () => []
-  )
-
   const [fetchedUser, setUser] = useState<UserInfo>()
   const [popout, setPopout] = useState(true)
-
-  const fetchList = useCallback(async () => {
-    setPopout(true)
-    const qrsRaw = (
-      await bridge.send('VKWebAppStorageGet', {
-        keys: ['history'],
-      })
-    ).keys.find((v) => v.key === 'history')
-    const qrs = JSON.parse((qrsRaw && qrsRaw.value) || '[]')
-    setQrList(qrs)
-    setPopout(false)
-  }, [])
 
   useEffect(() => {
     bridge.subscribe(({ detail: { type, data } }) => {
@@ -51,17 +33,7 @@ const App = () => {
       setPopout(false)
     }
     fetchData()
-    fetchList()
   }, [])
-
-  useEffect(() => {
-    if (qrList && qrList.length) {
-      bridge.send('VKWebAppStorageSet', {
-        key: 'history',
-        value: JSON.stringify(qrList),
-      })
-    }
-  }, [qrList])
 
   const go = useCallback((page) => setActivePanel(page), [])
 
@@ -73,10 +45,7 @@ const App = () => {
           popout={popout ? <ScreenSpinner size='large' /> : null}
         >
           <Panel id='main'>
-            <Main go={go} setLoading={setPopout} fetchItems={fetchList} />
-          </Panel>
-          <Panel id='collections'>
-            <Collections go={go} fetchItems={fetchList} />
+            <Main setLoading={setPopout} go={go} />
           </Panel>
         </View>
       </SplitCol>
