@@ -8,10 +8,18 @@ import {
   Progress,
   Separator,
   Div,
+  IconButton,
+  Input,
+  Header,
 } from '@vkontakte/vkui'
 import { GoInterface } from '../utils/interfaceInjections/go.interface'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import bridge from '@vkontakte/vk-bridge'
+import bridge, { UserInfo } from '@vkontakte/vk-bridge'
+import { Icon24Similar } from '@vkontakte/icons'
+import { WifiIcon } from '@heroicons/react/outline'
+import sock from '../utils/service/sock.service'
+import useCached from '../utils/useCached'
+import { Simulate } from 'react-dom/test-utils'
 
 const initialPattern = [false, false, false, false, false, false, false, false]
 const ticks = 8
@@ -25,17 +33,25 @@ export const LooperDJ = (props: MainProps) => {
   const [pattern, setPattern] = useState<boolean[]>(initialPattern)
   const [startTime, setStartTime] = useState<number>()
   const [tick, setTick] = useState<number>(0)
+  const [hashId, setHashId] = useState<string>('')
+
+  const { data: fetchedUser } = useCached<UserInfo | null>('user')
 
   useEffect(() => {
+    sock.emit(playState ? 'start' : 'stop', fetchedUser?.id, hashId)
     if (playState) {
-      let timer = setInterval(doTick, 1000)
+      setTick((t) => (t + 1) % ticks)
+      let timer = setInterval(() => setTick((t) => (t + 1) % ticks), 1000)
       return () => clearInterval(timer)
     }
-  }, [playState])
+  }, [playState, fetchedUser, hashId])
 
-  const doTick = useCallback(async () => {
-    playState && setTick((t) => (t + 1) % ticks)
-  }, [playState])
+  const managePlay = useCallback(
+    (state: boolean) => {
+      setPlayState(state)
+    },
+    [hashId]
+  )
 
   useEffect(() => {
     if (pattern[tick]) {
@@ -52,15 +68,51 @@ export const LooperDJ = (props: MainProps) => {
     bridge.send('VKWebAppFlashSetLevel', { level: 0 })
   }, [])
 
+  useEffect(() => {
+    if (hashId) {
+      sock.emit(
+        'update',
+        fetchedUser?.id,
+        hashId,
+        JSON.stringify(pattern) || ''
+      )
+    }
+  }, [pattern, hashId, fetchedUser])
+
+  useEffect(() => {
+    if (fetchedUser && fetchedUser.id) {
+      sock.emit('create', fetchedUser.id, JSON.stringify(pattern) || '')
+    }
+  }, [fetchedUser])
+
+  const onCreate = useCallback((hash: string) => {
+    setHashId(hash)
+  }, [])
+
+  useEffect(() => {
+    sock.on('beat-created', onCreate)
+    return () => {
+      sock.off('beat-created', onCreate)
+    }
+  }, [])
+
   return (
     <>
-      <PanelHeader>Flashlight-beat</PanelHeader>
+      <PanelHeader
+        left={
+          <IconButton onClick={() => props.go('join')}>
+            <WifiIcon className='w-6 h-6 mx-3' />
+          </IconButton>
+        }
+      >
+        Create Loop
+      </PanelHeader>
       <Group>
         <Div>
           <Button
             mode={!playState ? 'commerce' : 'destructive'}
             style={{ width: 'calc(70%)' }}
-            onClick={() => setPlayState((s) => !s)}
+            onClick={() => managePlay(!playState)}
             size={'m'}
           >
             {!playState ? 'Play!' : 'Stop'}
@@ -74,7 +126,7 @@ export const LooperDJ = (props: MainProps) => {
             Reset
           </Button>
         </Div>
-        <Div className={'flex flex-row items-center'}>
+        <Div className={'flex flex-row items-center justify-center'}>
           {pattern.map((v, i) => (
             <Button
               key={i}
@@ -90,6 +142,17 @@ export const LooperDJ = (props: MainProps) => {
             </Button>
           ))}
         </Div>
+
+        <Group
+          header={<Header mode='secondary'>Пригласите друзей в бит</Header>}
+          className={'flex flex-col items-center justify-center'}
+        >
+          <Input
+            value={hashId || 'Паттерн создается...'}
+            readOnly={true}
+            className={'text-center'}
+          />
+        </Group>
       </Group>
     </>
   )

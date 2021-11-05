@@ -2,6 +2,7 @@ require('dotenv').config()
 
 const { createServer } = require('http')
 const { Server } = require('socket.io')
+const { randomBytes } = require('crypto')
 
 const httpServer = createServer()
 
@@ -14,56 +15,76 @@ const io = new Server(httpServer, {
 
 const { PORT = 3030 } = process.env
 
-const SHAKES = {}
-const TIMEOUT_IDS = {}
+const STORAGE = {}
 
 io.on('connection', (socket) => {
-  console.log('conn')
+  const createBeat = (vkid, beat) => {
+    const arrayBeat = JSON.parse(beat)
 
-  const auth = (vkid) => {
-    console.log('auth', vkid)
+    const id = randomBytes(10).toString('hex')
 
-    socket.join('users/' + vkid)
-  }
-
-  const pair = (myVkid, friendVkid) => {
-    console.log('pair', myVkid, friendVkid)
-
-    socket.in('users/' + friendVkid).emit('pair-created', myVkid)
-    //socket.emit('pair-created', friendVkid)
-  }
-
-  const divorce = (myVkid, friendVkid) => {
-    console.log('divorce', myVkid, friendVkid)
-
-    socket.in('users/' + friendVkid).emit('pair-divorced', myVkid)
-    socket.emit('pair-divorced', friendVkid)
-  }
-
-  const shake = (myVkid, friendVkid) => {
-    console.log('shake', myVkid, friendVkid)
-
-    SHAKES[myVkid] = true
-
-    if (TIMEOUT_IDS[myVkid] !== undefined) {
-      clearTimeout(TIMEOUT_IDS[myVkid])
+    STORAGE[id] = {
+      beat: arrayBeat,
+      creator: vkid,
     }
-    TIMEOUT_IDS[myVkid] = setTimeout(() => (SHAKES[myVkid] = false), 3000)
 
-    if (SHAKES[friendVkid]) {
-      socket.in('users/' + friendVkid).emit('pair-handshaked', myVkid)
+    socket.join('beats/' + id)
 
-      socket.emit('pair-handshaked', friendVkid)
-    }
+    socket.emit('beat-created', id)
   }
-  socket.on('message', (sock) =>
-    console.log('msg', JSON.stringify(sock), socket),
-  )
-  socket.on('auth', auth)
-  socket.on('pair', pair)
-  socket.on('divorce', divorce)
-  socket.on('shake', shake)
-  socket.on('data', (...a) => console.log(a))
+
+  const updateBeat = (vkid, beatId, beat) => {
+    const arrayBeat = JSON.parse(beat)
+
+    if (!STORAGE[beatId]) return
+
+    if (STORAGE[beatId].creator !== vkid) return
+
+    STORAGE[beatId] = {
+      ...STORAGE[beatId],
+      beat: arrayBeat,
+    }
+
+    socket.to('beats/' + beatId).emit('beat-updated', STORAGE[beatId])
+  }
+
+  const getBeat = (beatId) => {
+    socket.join('beats/' + beatId)
+
+    socket.emit('beat', STORAGE[beatId])
+  }
+
+  const startBeat = (vkid, beatId) => {
+    const beat = STORAGE[beatId]
+
+    if (!beat) return
+
+    if (beat.creator !== vkid) return
+
+    beat.start = Date.now()
+
+    socket.in('beats/' + beatId).emit('beat-started', beat)
+    socket.emit('beat-started', beat)
+  }
+
+  const stopBeat = (vkid, beatId) => {
+    const beat = STORAGE[beatId]
+
+    if (!beat) return
+
+    if (beat.creator !== vkid) return
+
+    delete beat.start
+
+    socket.in('beats/' + beatId).emit('beat-stopped', beat)
+    socket.emit('beat-stopped', beat)
+  }
+
+  socket.on('create', createBeat)
+  socket.on('update', updateBeat)
+  socket.on('get', getBeat)
+  socket.on('start', startBeat)
+  socket.on('stop', stopBeat)
 })
 
 httpServer.listen(PORT)

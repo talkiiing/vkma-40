@@ -14,12 +14,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Main } from './pages/Main'
 import sock from './utils/service/sock.service'
 import SocketIO from './utils/service/SocketIO'
+import { LooperDJ } from './pages/LooperDJ'
+import { JoinLoop } from './pages/JoinLoop'
 
 const App = () => {
   const { viewWidth, viewHeight } = useAdaptivity()
   const { data: activePanel, setData: setActivePanel } = useCached(
     'activePanel',
-    async () => 'main'
+    async () => 'create'
   )
 
   const { data: fetchedUser, setData: setUser } = useCached<UserInfo | null>(
@@ -39,8 +41,6 @@ const App = () => {
       setPopout(false)
     }
     fetchData()
-
-    sock.onAny((...all) => console.log(all))
   }, [])
 
   useEffect(() => {
@@ -62,8 +62,11 @@ const App = () => {
           activePanel={activePanel}
           popout={popout ? <ScreenSpinner size='large' /> : null}
         >
-          <Panel id='main'>
-            <Main setLoading={setPopout} go={go} />
+          <Panel id='create'>
+            <LooperDJ setLoading={setPopout} go={go} />
+          </Panel>
+          <Panel id='join'>
+            <JoinLoop setLoading={setPopout} go={go} />
           </Panel>
         </View>
       </SplitCol>
