@@ -8,7 +8,7 @@
 
 @keyframes clapleft {
     0% {
-        transform: rotate3d(0);
+        transform: rotate3d(0, 0, 0, 0);
     }
     30% {
         transform: translateX(1rem);
@@ -23,7 +23,7 @@
 
 @keyframes clapright {
     0% {
-        transform: scaleX(-1) rotate3d(0);
+        transform: scaleX(-1) rotate3d(0, 0, 0, 0);
     }
     30% {
         transform: scaleX(-1) translateX(1rem);

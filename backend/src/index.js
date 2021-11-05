@@ -18,6 +18,8 @@ const SHAKES = {}
 const TIMEOUT_IDS = {}
 
 io.on('connection', (socket) => {
+  console.log('conn')
+
   const auth = (vkid) => {
     console.log('auth', vkid)
 
@@ -28,7 +30,7 @@ io.on('connection', (socket) => {
     console.log('pair', myVkid, friendVkid)
 
     socket.in('users/' + friendVkid).emit('pair-created', myVkid)
-    socket.emit('pair-created', friendVkid)
+    //socket.emit('pair-created', friendVkid)
   }
 
   const divorce = (myVkid, friendVkid) => {
@@ -54,11 +56,14 @@ io.on('connection', (socket) => {
       socket.emit('pair-handshaked', friendVkid)
     }
   }
-
+  socket.on('message', (sock) =>
+    console.log('msg', JSON.stringify(sock), socket),
+  )
   socket.on('auth', auth)
   socket.on('pair', pair)
   socket.on('divorce', divorce)
   socket.on('shake', shake)
+  socket.on('data', (...a) => console.log(a))
 })
 
 httpServer.listen(PORT)

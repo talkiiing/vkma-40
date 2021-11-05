@@ -10,8 +10,10 @@ import {
 } from '@vkontakte/vkui'
 import useCached from './utils/useCached'
 import bridge, { UserInfo } from '@vkontakte/vk-bridge'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Main } from './pages/Main'
+import sock from './utils/service/sock.service'
+import SocketIO from './utils/service/SocketIO'
 
 const App = () => {
   const { viewWidth, viewHeight } = useAdaptivity()
@@ -20,7 +22,11 @@ const App = () => {
     async () => 'main'
   )
 
-  const [fetchedUser, setUser] = useState<UserInfo>()
+  const { data: fetchedUser, setData: setUser } = useCached<UserInfo | null>(
+    'user',
+    async () => null
+  )
+
   const [popout, setPopout] = useState(true)
 
   useEffect(() => {
@@ -33,7 +39,19 @@ const App = () => {
       setPopout(false)
     }
     fetchData()
+
+    sock.onAny((...all) => console.log(all))
   }, [])
+
+  useEffect(() => {
+    const id = fetchedUser?.id
+    console.log('authing as ', id, sock)
+    let timer = setTimeout(() => {
+      console.log('Sending auth')
+      sock.emit('auth', id)
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [fetchedUser])
 
   const go = useCallback((page) => setActivePanel(page), [])
 

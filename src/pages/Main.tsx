@@ -17,7 +17,10 @@ import {
   Icon24Users,
   Icon56UserCircleOutline,
 } from '@vkontakte/icons'
-import bridge, { VKBridgeSubscribeHandler } from '@vkontakte/vk-bridge'
+import bridge, {
+  UserInfo,
+  VKBridgeSubscribeHandler,
+} from '@vkontakte/vk-bridge'
 import { Friend } from '../utils/models/General.model'
 import { Handshake } from '../components/Handshake'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -25,16 +28,26 @@ import {
   AnyReceiveMethodName,
   VKBridgeEvent,
 } from '@vkontakte/vk-bridge/dist/types/src/types/bridge'
+import sock from '../utils/service/sock.service'
 
 export interface MainProps extends GoInterface {
   setLoading: (state: boolean) => void
 }
+
+const createPair = (your_id: any, fri_id: any) =>
+  sock.emit('pair', your_id, fri_id)
+
+const createDivorce = (your_id: any, fri_id: any) =>
+  sock.emit('divorce', your_id.toString(), fri_id.toString())
 
 export const Main = (props: MainProps) => {
   const { data: friend, setData: setFriend } = useCached<Friend | null>(
     'friend',
     async () => null
   )
+
+  const { data: fetchedUser } = useCached<UserInfo | null>('user')
+
   const platform = usePlatform()
 
   const [friendOnline, setFriendOnline] = useState(false)
@@ -43,15 +56,19 @@ export const Main = (props: MainProps) => {
   const [vibro, setVibro] = useState(false)
 
   const accelHandler = useCallback(
-    (fn: (success: boolean) => void): VKBridgeSubscribeHandler => {
+    (fn: CallableFunction): VKBridgeSubscribeHandler => {
       let submitter = 7
 
       const handle = ({ x, y, z }: { x: string; y: string; z: string }) => {
-        if (parseInt(x) > 6 || parseInt(y) > 6 || parseInt(y) > 6) {
-          console.log('subm', submitter)
+        if (
+          Math.abs(parseInt(x)) > 6 ||
+          Math.abs(parseInt(y)) > 6 ||
+          Math.abs(parseInt(y)) > 6
+        ) {
           submitter--
           if (submitter < 0) {
-            fn(true)
+            fn()
+            submitter = 7
           }
         }
       }
@@ -60,6 +77,7 @@ export const Main = (props: MainProps) => {
         if (e.detail.type === 'VKWebAppAccelerometerChanged') {
           //console.log(e.detail.data)
           handle(e.detail.data)
+          console.log('subm', submitter)
         }
       }
     },
@@ -91,10 +109,17 @@ export const Main = (props: MainProps) => {
     }
   }, [handshakeSucceed])
 
-  const handlerBundle = useMemo(
-    () => accelHandler(setHandshakeSucceed),
-    [accelHandler, handshakeSucceed]
-  )
+  const manageAccel = useCallback((on: boolean) => {
+    bridge.send(
+      on ? 'VKWebAppAccelerometerStart' : 'VKWebAppAccelerometerStop',
+      { refresh_rate: '100' }
+    )
+  }, [])
+
+  const handlerBundle = useMemo((): VKBridgeSubscribeHandler => {
+    //console.log('bundle rebuild', fetchedUser?.id, friend?.id)
+    return accelHandler(() => sock.emit('shake', fetchedUser?.id, friend?.id))
+  }, [accelHandler, fetchedUser, friend])
 
   useEffect(() => {
     return () => setVibro(false)
@@ -103,11 +128,57 @@ export const Main = (props: MainProps) => {
   useEffect(() => {
     if (handshakeSucceed) {
       bridge.unsubscribe(handlerBundle)
+      manageAccel(false)
     } else {
-      friendOnline && bridge.subscribe(handlerBundle)
-      return () => bridge.unsubscribe(handlerBundle)
+      if (friendOnline) {
+        manageAccel(true)
+        bridge.subscribe(handlerBundle)
+      }
+      return () => {
+        bridge.unsubscribe(handlerBundle)
+        manageAccel(false)
+      }
     }
-  }, [accelHandler, friendOnline, handlerBundle, handshakeSucceed])
+  }, [friendOnline, handlerBundle, handshakeSucceed])
+
+  const handleDivorce = useCallback((friendId: number) => {
+    setFriendOnline(false)
+    console.log('divorced ', friendId)
+  }, [])
+
+  const handleCreate = useCallback(
+    (friendId: number) => {
+      if (friendId === friend?.id) {
+        setFriendOnline(true)
+        console.log('created ', friendId)
+        manageAccel(true)
+      } else {
+        console.log('dodged ', friendId)
+      }
+    },
+    [friend]
+  )
+
+  const handleHandshakeSucceed = useCallback((friendId: number) => {
+    setHandshakeSucceed(true)
+    manageAccel(false)
+    console.log('shaked ', friendId)
+  }, [])
+
+  useEffect(() => {
+    sock.on('pair-divorced', handleDivorce)
+  }, [])
+
+  useEffect(() => {
+    sock.on('pair-handshaked', handleHandshakeSucceed)
+  }, [])
+
+  useEffect(() => {
+    sock.on('pair-created', handleCreate)
+    return () => {
+      sock.off('pair-created', handleCreate)
+    }
+  }, [handleCreate])
 
   return (
     <>
@@ -121,15 +192,18 @@ export const Main = (props: MainProps) => {
               action={
                 <Button
                   size='m'
-                  onClick={async () =>
-                    setFriend(
+                  onClick={async () => {
+                    const person =
                       ((
                         await bridge.send('VKWebAppGetFriends', {
                           multi: false,
                         })
                       )?.users[0] as Friend) || null
-                    )
-                  }
+                    setFriend(person)
+                    if (fetchedUser && person) {
+                      createPair(fetchedUser.id, person.id)
+                    }
+                  }}
                   before={<Icon24UserAdd className='h-4 w-4' />}
                   mode='primary'
                 >
@@ -157,17 +231,19 @@ export const Main = (props: MainProps) => {
                         <Button
                           size='m'
                           onClick={async () => {
-                            reset()
-                            setFriend(
+                            const person =
                               ((
                                 await bridge.send('VKWebAppGetFriends', {
                                   multi: false,
                                 })
                               )?.users[0] as Friend) || null
-                            )
+                            setFriend(person)
+                            if (fetchedUser && person) {
+                              createPair(fetchedUser.id, person.id)
+                            }
                           }}
                           before={<Icon24Users className='h-4 w-4' />}
-                          mode='primary'
+                          mode='commerce'
                         >
                           Выбрать друга снова
                         </Button>
@@ -175,10 +251,11 @@ export const Main = (props: MainProps) => {
                           size='m'
                           onClick={() => {
                             reset()
+                            createDivorce(fetchedUser?.id, friend.id)
                             setFriend(null)
                           }}
                           before={<Icon24Dismiss className='h-4 w-4' />}
-                          mode='secondary'
+                          mode='primary'
                         >
                           Закончить
                         </Button>
@@ -187,15 +264,18 @@ export const Main = (props: MainProps) => {
                       <>
                         <Button
                           size='m'
-                          onClick={async () =>
-                            setFriend(
+                          onClick={async () => {
+                            const person =
                               ((
                                 await bridge.send('VKWebAppGetFriends', {
                                   multi: false,
                                 })
                               )?.users[0] as Friend) || null
-                            )
-                          }
+                            setFriend(person)
+                            if (fetchedUser && person) {
+                              createPair(fetchedUser.id, person.id)
+                            }
+                          }}
                           before={<Icon24Users className='h-4 w-4' />}
                           mode='secondary'
                         >
@@ -203,7 +283,12 @@ export const Main = (props: MainProps) => {
                         </Button>
                         <Button
                           size='m'
-                          onClick={() => setFriend(null)}
+                          onClick={() => {
+                            if (fetchedUser && friend) {
+                              createDivorce(fetchedUser.id, friend.id)
+                            }
+                            setFriend(null)
+                          }}
                           before={<Icon24Dismiss className='h-4 w-4' />}
                           mode='destructive'
                         >
@@ -222,22 +307,6 @@ export const Main = (props: MainProps) => {
                     : 'Мы ожидаем, пока Ваш друг зайдет в приложение...'}
                 </span>
               </Placeholder>
-              <Button
-                size='m'
-                onClick={() => {
-                  bridge.send(
-                    friendOnline
-                      ? 'VKWebAppAccelerometerStop'
-                      : 'VKWebAppAccelerometerStart',
-                    { refresh_rate: '100' }
-                  )
-                  setFriendOnline((v) => !v)
-                }}
-                before={<Icon20Check className='h-4 w-4' />}
-                mode='commerce'
-              >
-                Сменить {friendOnline ? 'y' : 'n'}
-              </Button>
               <Separator />
               <Handshake active={handshakeSucceed} />
             </>
